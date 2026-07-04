@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="よるじかん">
+<meta name="theme-color" content="#1A1E2C">
+<title>よるじかん — 平日夜の逆算プランナー</title>
+<style>
+  :root{
+    --night:#1A1E2C;
+    --surface:#242A3C;
+    --surface2:#2D3448;
+    --line:#3A425A;
+    --ink:#EDEAE1;
+    --sub:#9BA3BB;
+    --lamp:#F2B25C;
+    --lamp-deep:#E09A3E;
+    --lamp-soft:rgba(242,178,92,.13);
+    --task:#5E739E;
+    --task-ink:#C8D3E8;
+    --danger:#E08A8A;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #232A42 0%, transparent 60%),
+      var(--night);
+    color:var(--ink);
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic","Noto Sans JP",sans-serif;
+    min-height:100vh;
+    padding:28px 16px 64px;
+    line-height:1.6;
+  }
+  .wrap{max-width:680px;margin:0 auto}
+
+  header{margin-bottom:22px}
+  .eyebrow{
+    font-size:12px;letter-spacing:.18em;color:var(--sub);
+    text-transform:uppercase;margin-bottom:4px;
+  }
+  h1{
+    font-size:26px;font-weight:700;letter-spacing:.04em;
+  }
+  h1 .moon{color:var(--lamp)}
+  .tagline{color:var(--sub);font-size:13px;margin-top:2px}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    font-size:13px;color:var(--sub);letter-spacing:.12em;
+    font-weight:600;margin-bottom:12px;
+  }
+
+  /* ---- 時刻入力 ---- */
+  .times{display:flex;gap:12px;flex-wrap:wrap}
+  .time-field{flex:1;min-width:140px}
+  .time-field label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+  input[type="time"], input[type="number"]{
+    width:100%;
+    background:var(--night);
+    border:1px solid var(--line);
+    border-radius:10px;
+    color:var(--ink);
+    font-size:20px;
+    font-family:inherit;
+    padding:10px 12px;
+  }
+  input[type="time"]:focus, input[type="number"]:focus, button:focus-visible, .opt:focus-visible{
+    outline:2px solid var(--lamp);outline-offset:2px;
+  }
+
+  /* ---- 今夜のオプション ---- */
+  .opts{display:flex;gap:8px;flex-wrap:wrap}
+  .opt{
+    flex:1;min-width:100px;
+    background:var(--night);
+    border:1px solid var(--line);
+    border-radius:10px;
+    color:var(--sub);
+    font-family:inherit;font-size:14px;
+    padding:10px 8px;
+    cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .opt[aria-pressed="true"]{
+    border-color:var(--lamp);
+    color:var(--lamp);
+    background:var(--lamp-soft);
+  }
+
+  /* ---- 自由時間ヘッドライン ---- */
+  .free-hero{
+    display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+    padding:16px 18px;
+    background:linear-gradient(135deg, var(--lamp-soft), transparent 70%);
+    border:1px solid rgba(242,178,92,.35);
+    border-radius:var(--radius);
+    margin-bottom:16px;
+  }
+  .free-hero .label{font-size:13px;color:var(--sub)}
+  .free-hero .num{
+    font-size:40px;font-weight:700;color:var(--lamp);
+    line-height:1;letter-spacing:.02em;
+    text-shadow:0 0 24px rgba(242,178,92,.35);
+  }
+  .free-hero .unit{font-size:15px;color:var(--lamp-deep)}
+  .free-hero.warn .num{color:var(--danger);text-shadow:none}
+  .free-hero .note{flex-basis:100%;font-size:12px;color:var(--sub)}
+
+  /* ---- タイムライン ---- */
+  .tl{list-style:none}
+  .tl li{
+    display:grid;
+    grid-template-columns:52px 14px 1fr;
+    gap:0 12px;
+    position:relative;
+  }
+  .tl .t{
+    font-variant-numeric:tabular-nums;
+    font-size:13px;color:var(--sub);
+    padding-top:2px;text-align:right;
+  }
+  .tl .rail{position:relative}
+  .tl .rail::before{
+    content:"";position:absolute;left:5px;top:6px;bottom:-6px;
+    width:2px;background:var(--line);
+  }
+  .tl li:last-child .rail::before{display:none}
+  .tl .dot{
+    position:absolute;left:0;top:5px;
+    width:12px;height:12px;border-radius:50%;
+    background:var(--task);
+  }
+  .tl .body{padding-bottom:14px;min-width:0}
+  .tl .name{font-size:15px;color:var(--task-ink)}
+  .tl .mins{font-size:12px;color:var(--sub)}
+  .tl .bar{
+    height:6px;border-radius:3px;background:var(--task);
+    opacity:.55;margin-top:6px;max-width:100%;
+  }
+  .tl li.free .dot{background:var(--lamp);box-shadow:0 0 10px rgba(242,178,92,.7)}
+  .tl li.free .name{color:var(--lamp);font-weight:700}
+  .tl li.free .bar{
+    background:linear-gradient(90deg,var(--lamp),var(--lamp-deep));
+    opacity:1;
+    box-shadow:0 0 14px rgba(242,178,92,.45);
+  }
+  .tl li.now .body::after{
+    content:"◀ いまここ";
+    font-size:11px;color:var(--lamp);margin-left:8px;
+  }
+  .tl li.now .name{text-decoration:underline;text-underline-offset:4px}
+  @media (prefers-reduced-motion:no-preference){
+    .tl li.free .bar{animation:glow 3.2s ease-in-out infinite}
+    @keyframes glow{
+      0%,100%{box-shadow:0 0 10px rgba(242,178,92,.3)}
+      50%{box-shadow:0 0 20px rgba(242,178,92,.6)}
+    }
+  }
+
+  /* ---- 洗濯コース選択 ---- */
+  .wash-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .wash-row{display:flex;align-items:center;gap:10px}
+  .wash-row .wash-label{flex:0 0 48px;font-size:12px;color:var(--sub)}
+  .wash-row .opts{flex:1}
+  .wash-row .opt{min-width:0;padding:8px 6px;font-size:13px}
+  .wash-row.disabled{opacity:.35;pointer-events:none}
+
+  /* ---- 洗濯タイマー ---- */
+  .laundry{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .laundry .big{
+    font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;
+  }
+  .laundry .big.done{color:var(--lamp)}
+  .btn{
+    font-family:inherit;font-size:14px;font-weight:600;
+    border:none;border-radius:10px;cursor:pointer;
+    padding:11px 18px;
+    background:var(--lamp);color:#221A0D;
+    transition:transform .1s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{
+    background:transparent;color:var(--sub);
+    border:1px solid var(--line);
+  }
+  .laundry .sub{font-size:12px;color:var(--sub);flex-basis:100%}
+
+  /* ---- 所要時間の編集 ---- */
+  details{border-top:1px solid var(--line);margin-top:4px;padding-top:12px}
+  summary{
+    cursor:pointer;font-size:13px;color:var(--sub);
+    list-style:none;user-select:none;
+  }
+  summary::before{content:"▸ ";color:var(--lamp)}
+  details[open] summary::before{content:"▾ "}
+  .durs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+  .durs label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px}
+  .durs input{font-size:16px;padding:8px 10px}
+
+  .save-note{
+    font-size:12px;color:var(--sub);text-align:center;margin-top:6px;
+    min-height:1.2em;
+  }
+  .save-note.ok{color:var(--lamp)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">WEEKNIGHT PLANNER</div>
+    <h1>よるじかん<span class="moon"> ◐</span></h1>
+    <p class="tagline">帰宅と就寝を入れるだけ。今夜の自由時間を、先に確保する。</p>
+  </header>
+
+  <div class="free-hero" id="freeHero">
+    <span class="label">今夜の自由時間</span>
+    <span class="num" id="freeNum">--</span>
+    <span class="unit">分</span>
+    <span class="note" id="freeNote"></span>
+  </div>
+
+  <section class="card">
+    <h2>きょうの時刻</h2>
+    <div class="times">
+      <div class="time-field">
+        <label for="homeTime">帰宅</label>
+        <input type="time" id="homeTime" value="19:30">
+      </div>
+      <div class="time-field">
+        <label for="bedTime">就寝目標</label>
+        <input type="time" id="bedTime" value="23:30">
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>今夜のオプション</h2>
+    <div class="opts" role="group" aria-label="今夜のオプション">
+      <button class="opt" data-opt="none" aria-pressed="true">なし</button>
+      <button class="opt" data-opt="seminar" aria-pressed="false">リベシティ視聴</button>
+      <button class="opt" data-opt="yoga" aria-pressed="false">ヨガレッスン<br>60分</button>
+      <button class="opt" data-opt="yogaSelf" aria-pressed="false">自主ヨガ<br>10〜20分</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>洗濯タイマー(SHARP ES-GE7D)</h2>
+    <div class="wash-rows">
+      <div class="wash-row">
+        <span class="wash-label">コース</span>
+        <div class="opts" role="group" aria-label="洗濯コース">
+          <button class="opt wcourse" data-wcourse="oshare" aria-pressed="true">おしゃれ着</button>
+          <button class="opt wcourse" data-wcourse="standard" aria-pressed="false">標準(20L)</button>
+        </div>
+      </div>
+      <div class="wash-row" id="waterRow">
+        <span class="wash-label">水量</span>
+        <div class="opts" role="group" aria-label="水量">
+          <button class="opt wwater" data-wwater="12" aria-pressed="true">12L</button>
+          <button class="opt wwater" data-wwater="20" aria-pressed="false">20L</button>
+        </div>
+      </div>
+      <div class="wash-row" id="rinseRow">
+        <span class="wash-label">すすぎ</span>
+        <div class="opts" role="group" aria-label="すすぎ">
+          <button class="opt wrinse" data-wrinse="yes" aria-pressed="true">あり</button>
+          <button class="opt wrinse" data-wrinse="no" aria-pressed="false">なし</button>
+        </div>
+      </div>
+    </div>
+    <div class="laundry">
+      <span class="big" id="laundryDisp">未スタート</span>
+      <button class="btn" id="laundryBtn">洗濯機スタート</button>
+      <button class="btn ghost" id="laundryReset" hidden>リセット</button>
+      <span class="sub" id="laundrySub"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>今夜のタイムライン</h2>
+    <ul class="tl" id="timeline"></ul>
+    <details>
+      <summary>所要時間をカスタマイズ</summary>
+      <div class="durs" id="durInputs"></div>
+    </details>
+  </section>
+
+  <p class="save-note" id="saveNote"></p>
+</div>
+
+<script>
+(() => {
+  // ---------- 設定(所要時間・分) ----------
+  const DEFAULT_DURS = {
+    washStart:  { label: "洗濯機を回す",              min: 5  },
+    dinner:     { label: "夕食(準備+食べる)",         min: 40 },
+    hang:       { label: "洗濯を干す",                min: 15 },
+    bath:       { label: "お風呂(スキンケア・掃除込)", min: 60 },
+    dryer:      { label: "ドライヤー・歯磨き",         min: 15 },
+    dishes:     { label: "皿洗い",                    min: 15 },
+    seminar:    { label: "リベシティ視聴",             min: 60 },
+    yoga:       { label: "美筋ヨガ レッスン",          min: 60 },
+    yogaSelf:   { label: "自主ヨガ",                  min: 15 },
+    // ES-GE7D 洗濯コース(水量・すすぎ別の推定値。実測で調整OK)
+    oshare12R:  { label: "おしゃれ着12L すすぎあり",   min: 24 },
+    oshare12N:  { label: "おしゃれ着12L すすぎなし",   min: 12 },
+    oshare20R:  { label: "おしゃれ着20L すすぎあり",   min: 28 },
+    oshare20N:  { label: "おしゃれ着20L すすぎなし",   min: 14 },
+    standard20: { label: "標準20L すすぎあり",         min: 35 },
+  };
+
+  let state = {
+    homeTime: "19:30",
+    bedTime: "23:30",
+    opt: "none",
+    wash: { course: "oshare", water: "12", rinse: "yes" },
+    durs: Object.fromEntries(Object.entries(DEFAULT_DURS).map(([k,v]) => [k, v.min])),
+  };
+  function washKey() {
+    if (state.wash.course === "standard") return "standard20";
+    return "oshare" + state.wash.water + (state.wash.rinse === "yes" ? "R" : "N");
+  }
+  const washerRun = () => state.durs[washKey()];
+  let laundry = { endAt: null }; // epoch ms
+  let laundryTick = null;
+
+  // ---------- ストレージ(Safari: localStorage / プライベートブラウズ等では黙ってメモリのみ) ----------
+  const STORE_KEY = "yorujikan:settings";
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        state = {
+          ...state, ...saved,
+          wash: { ...state.wash, ...(saved.wash || {}) },
+          durs: { ...state.durs, ...(saved.durs || {}) },
+        };
+      }
+    } catch (e) { /* 使えない環境では初期値のまま */ }
+  }
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        flashSave("設定を保存しました(この端末に記憶)");
+      } catch (e) { /* 保存不可環境では何もしない */ }
+    }, 600);
+  }
+  function flashSave(msg) {
+    const el = document.getElementById("saveNote");
+    el.textContent = msg;
+    el.classList.add("ok");
+    setTimeout(() => { el.textContent = ""; el.classList.remove("ok"); }, 2000);
+  }
+
+  // ---------- 時刻ユーティリティ ----------
+  const toMin = (hhmm) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const fmt = (mins) => {
+    mins = ((mins % 1440) + 1440) % 1440;
+    return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0");
+  };
+
+  // ---------- スケジュール計算 ----------
+  function buildSchedule() {
+    const d = state.durs;
+    const home = toMin(state.homeTime);
+    let bed = toMin(state.bedTime);
+    if (bed <= home) bed += 1440; // 日跨ぎ
+
+    // 洗濯機の終了時刻: 実タイマー稼働中はそれを優先
+    let washerEnd;
+    if (laundry.endAt) {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      let endMin = Math.ceil((laundry.endAt - now.getTime()) / 60000) + nowMin;
+      if (endMin < home) endMin += 1440;
+      washerEnd = endMin;
+    } else {
+      washerEnd = home + d.washStart + washerRun();
+    }
+
+    const items = [];
+    let t = home;
+    const push = (name, min, cls = "") => {
+      items.push({ name, start: t, min, cls });
+      t += min;
+    };
+
+    push("帰宅・洗濯機を回す", d.washStart);
+    push("夕食(準備+食べる)", d.dinner);
+
+    // 洗濯機がまだ回っていたら、その待ち時間はランプ色(自由時間の前借り)
+    if (t < washerEnd) {
+      push("ひと休み(洗濯終了待ち)", washerEnd - t, "free");
+    }
+    push("洗濯を干す", d.hang);
+    push("お風呂", d.bath);
+    push("ドライヤー・歯磨き", d.dryer);
+    push("皿洗い", d.dishes);
+    if (state.opt === "seminar")  push("リベシティ視聴", d.seminar);
+    if (state.opt === "yoga")     push("美筋ヨガ レッスン", d.yoga);
+    if (state.opt === "yogaSelf") push("自主ヨガ", d.yogaSelf);
+
+    const freeMin = bed - t;
+    if (freeMin > 0) push("自由時間", freeMin, "free");
+    items.push({ name: "就寝", start: bed, min: 0, cls: "bed" });
+
+    return { items, freeMin, bed };
+  }
+
+  // ---------- 描画 ----------
+  function render() {
+    const { items, freeMin } = buildSchedule();
+
+    // 自由時間ヘッドライン
+    const hero = document.getElementById("freeHero");
+    const num = document.getElementById("freeNum");
+    const note = document.getElementById("freeNote");
+    const waitFree = items.filter(i => i.cls === "free" && i.name.includes("休"))
+                          .reduce((s, i) => s + i.min, 0);
+    if (freeMin >= 0) {
+      hero.classList.remove("warn");
+      num.textContent = freeMin + (waitFree ? " +" + waitFree : "");
+      note.textContent = waitFree
+        ? `就寝前に${freeMin}分。洗濯待ちのひと休み${waitFree}分も自由に使えます。`
+        : `就寝前にまとまって${freeMin}分とれます。`;
+    } else {
+      hero.classList.add("warn");
+      num.textContent = freeMin;
+      note.textContent = `このままだと就寝が${-freeMin}分オーバーします。オプションを外すか、所要時間を見直してみてください。`;
+    }
+
+    // タイムライン
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const tl = document.getElementById("timeline");
+    const maxMin = Math.max(...items.map(i => i.min), 1);
+    tl.innerHTML = "";
+    items.forEach(it => {
+      const li = document.createElement("li");
+      if (it.cls) li.className = it.cls;
+      const startNorm = it.start % 1440;
+      const endNorm = (it.start + it.min) % 1440;
+      const isNow = it.min > 0 &&
+        ((startNorm <= nowMin && nowMin < startNorm + it.min) ||
+         (startNorm + it.min > 1440 && nowMin < endNorm));
+      if (isNow) li.classList.add("now");
+
+      li.innerHTML = `
+        <span class="t">${fmt(it.start)}</span>
+        <span class="rail"><span class="dot"></span></span>
+        <span class="body">
+          <span class="name">${it.name}</span>
+          ${it.min > 0 ? `<span class="mins"> ・${it.min}分</span>
+          <div class="bar" style="width:${Math.max(8, (it.min / maxMin) * 100)}%"></div>` : ""}
+        </span>`;
+      tl.appendChild(li);
+    });
+  }
+
+  // ---------- 洗濯タイマー ----------
+  const laundryDisp = document.getElementById("laundryDisp");
+  const laundryBtn = document.getElementById("laundryBtn");
+  const laundryReset = document.getElementById("laundryReset");
+  const laundrySub = document.getElementById("laundrySub");
+
+  function courseIdle() {
+    laundrySub.textContent =
+      `${DEFAULT_DURS[washKey()].label}: 約${washerRun()}分。スタートを押すとカウントダウンが始まり、終了予定がタイムラインに反映されます。`;
+  }
+  function startLaundry() {
+    laundry.endAt = Date.now() + washerRun() * 60000;
+    laundryBtn.hidden = true;
+    laundryReset.hidden = false;
+    tickLaundry();
+    laundryTick = setInterval(tickLaundry, 1000);
+    render();
+  }
+  function resetLaundry() {
+    laundry.endAt = null;
+    clearInterval(laundryTick);
+    laundryDisp.textContent = "未スタート";
+    laundryDisp.classList.remove("done");
+    laundryBtn.hidden = false;
+    laundryReset.hidden = true;
+    courseIdle();
+    render();
+  }
+  function tickLaundry() {
+    const remain = laundry.endAt - Date.now();
+    if (remain <= 0) {
+      laundryDisp.textContent = "干す時間!";
+      laundryDisp.classList.add("done");
+      laundrySub.textContent = "洗濯が終わりました。しわになる前に干しましょう。";
+      clearInterval(laundryTick);
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      return;
+    }
+    const m = Math.floor(remain / 60000);
+    const s = Math.floor((remain % 60000) / 1000);
+    laundryDisp.textContent = `あと ${m}:${String(s).padStart(2, "0")}`;
+    const end = new Date(laundry.endAt);
+    laundrySub.textContent = `終了予定 ${String(end.getHours()).padStart(2,"0")}:${String(end.getMinutes()).padStart(2,"0")}`;
+  }
+  laundryBtn.addEventListener("click", startLaundry);
+  laundryReset.addEventListener("click", resetLaundry);
+
+  // ---------- 入力ハンドラ ----------
+  const homeInput = document.getElementById("homeTime");
+  const bedInput = document.getElementById("bedTime");
+  homeInput.addEventListener("input", () => { state.homeTime = homeInput.value || state.homeTime; render(); scheduleSave(); });
+  bedInput.addEventListener("input", () => { state.bedTime = bedInput.value || state.bedTime; render(); scheduleSave(); });
+
+  document.querySelectorAll(".opt[data-opt]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.opt = btn.dataset.opt;
+      document.querySelectorAll(".opt[data-opt]").forEach(b =>
+        b.setAttribute("aria-pressed", String(b === btn)));
+      render(); scheduleSave();
+    });
+  });
+
+  function syncWashButtons() {
+    document.querySelectorAll(".opt.wcourse").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.wcourse === state.wash.course)));
+    document.querySelectorAll(".opt.wwater").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.wwater === state.wash.water)));
+    document.querySelectorAll(".opt.wrinse").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.wrinse === state.wash.rinse)));
+    const isStd = state.wash.course === "standard";
+    document.getElementById("waterRow").classList.toggle("disabled", isStd);
+    document.getElementById("rinseRow").classList.toggle("disabled", isStd);
+  }
+  function onWashChange() {
+    syncWashButtons();
+    if (!laundry.endAt) courseIdle();
+    render(); scheduleSave();
+  }
+  document.querySelectorAll(".opt.wcourse").forEach(btn =>
+    btn.addEventListener("click", () => { state.wash.course = btn.dataset.wcourse; onWashChange(); }));
+  document.querySelectorAll(".opt.wwater").forEach(btn =>
+    btn.addEventListener("click", () => { state.wash.water = btn.dataset.wwater; onWashChange(); }));
+  document.querySelectorAll(".opt.wrinse").forEach(btn =>
+    btn.addEventListener("click", () => { state.wash.rinse = btn.dataset.wrinse; onWashChange(); }));
+
+  function buildDurInputs() {
+    const box = document.getElementById("durInputs");
+    box.innerHTML = "";
+    Object.entries(DEFAULT_DURS).forEach(([key, def]) => {
+      const wrap = document.createElement("div");
+      wrap.innerHTML = `<label for="dur-${key}">${def.label}(分)</label>
+        <input type="number" id="dur-${key}" min="1" max="180" value="${state.durs[key]}">`;
+      const input = wrap.querySelector("input");
+      input.addEventListener("input", () => {
+        const v = parseInt(input.value, 10);
+        if (v >= 1 && v <= 180) { state.durs[key] = v; render(); scheduleSave(); }
+      });
+      box.appendChild(wrap);
+    });
+  }
+
+  // ---------- 起動 ----------
+  loadState();
+  homeInput.value = state.homeTime;
+  bedInput.value = state.bedTime;
+  document.querySelectorAll(".opt[data-opt]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.opt === state.opt)));
+  syncWashButtons();
+  buildDurInputs();
+  courseIdle();
+  render();
+  setInterval(render, 60000); // 「いまここ」マーカーの更新
+})();
+</script>
+</body>
+</html>
