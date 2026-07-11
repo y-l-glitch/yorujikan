@@ -339,6 +339,7 @@
     const active = state.plan.filter(p => p.on);
     let washCount = 0, hangCount = 0;
     const totalWash = active.filter(p => p.t === "washStart").length;
+    const totalHang = active.filter(p => p.t === "hang").length;
 
     for (const p of active) {
       const dur = state.durs[p.t];
@@ -364,7 +365,7 @@
         hangCount++;
         const mEnd = machineEnds.length ? machineEnds.shift() : t;
         if (t < mEnd) push("ひと休み(洗濯終了待ち)", mEnd - t, "free");
-        const suffix = totalWash > 1 ? `(${hangCount}回目)` : "";
+        const suffix = totalHang > 1 ? `(${hangCount}回目)` : "";
         push(labelOf(p.t) + suffix, dur);
       } else {
         push(labelOf(p.t), dur);
@@ -450,12 +451,13 @@
     const ul = document.getElementById("planList");
     ul.innerHTML = "";
     const totalWash = state.plan.filter(p => p.t === "washStart").length;
+    const totalHang = state.plan.filter(p => p.t === "hang").length;
     let wSeen = 0, hSeen = 0;
 
     state.plan.forEach((p, idx) => {
       let name = labelOf(p.t);
-      if (totalWash > 1 && p.t === "washStart") name += `(${++wSeen}回目)`;
-      if (totalWash > 1 && p.t === "hang") name += `(${++hSeen}回目)`;
+      if (p.t === "washStart") { wSeen++; if (totalWash > 1) name += `(${wSeen}回目)`; }
+      if (p.t === "hang") { hSeen++; if (totalHang > 1) name += `(${hSeen}回目)`; }
       const removable = (p.t === "washStart" && wSeen > 1) || (p.t === "hang" && hSeen > 1);
 
       const li = document.createElement("li");
@@ -516,14 +518,36 @@
     laundrySub.textContent =
       `${COURSE_DEFS[washKey()].label}: 約${washerRun()}分。スタートでカウントダウン開始。タイムラインの1回目の洗濯に反映されます。`;
   }
+  // タイマーは端末に保存して、開き直しても続きから表示する
+  const LAUNDRY_KEY = "yorujikan:laundry";
+  function saveLaundry() {
+    try {
+      if (laundry.endAt) localStorage.setItem(LAUNDRY_KEY, String(laundry.endAt));
+      else localStorage.removeItem(LAUNDRY_KEY);
+    } catch (e) { /* 保存不可環境 */ }
+  }
+  function loadLaundry() {
+    try {
+      const v = Number(localStorage.getItem(LAUNDRY_KEY));
+      if (!v) return;
+      // 終了から2時間以上たっていたら前夜の分とみなして持ち越さない
+      if (Date.now() - v > 2 * 60 * 60 * 1000) { localStorage.removeItem(LAUNDRY_KEY); return; }
+      laundry.endAt = v;
+      laundryBtn.hidden = true; laundryReset.hidden = false;
+      tickLaundry();
+      if (v > Date.now()) laundryTick = setInterval(tickLaundry, 1000);
+    } catch (e) { /* 読み込み不可環境 */ }
+  }
   function startLaundry() {
     laundry.endAt = Date.now() + washerRun() * 60000;
+    saveLaundry();
     laundryBtn.hidden = true; laundryReset.hidden = false;
     tickLaundry(); laundryTick = setInterval(tickLaundry, 1000);
     render();
   }
   function resetLaundry() {
     laundry.endAt = null; clearInterval(laundryTick);
+    saveLaundry();
     laundryDisp.textContent = "未スタート"; laundryDisp.classList.remove("done");
     laundryBtn.hidden = false; laundryReset.hidden = true;
     courseIdle(); render();
@@ -598,6 +622,7 @@
   syncWashButtons();
   buildDurInputs();
   courseIdle();
+  loadLaundry();
   render();
   setInterval(render, 30000); // いまライン更新
 })();
